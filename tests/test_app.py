@@ -20,7 +20,7 @@ def test_get_platforms():
 
 def test_get_specific_version_ok():
     '''
-    testing get specefic API endpoint versions (with value)
+    testing get specific API endpoint versions (with value)
     '''
     os_relase = 'redhat8'
     versions = ['2.3.0','2.2.0',]
@@ -30,7 +30,7 @@ def test_get_specific_version_ok():
 
 def test_get_specific_version_fail():
     '''
-    testing get specefic API endpoint versions (with non existing OS)
+    testing get specific API endpoint versions (with non existing OS)
     '''
     fail = 'dont_exists'
     response = client.get(f"/versions/{fail}")
@@ -39,7 +39,7 @@ def test_get_specific_version_fail():
 
 def test_get_specific_os_version_patch_ok():
     '''
-    testing get specefic API endpoint versions (with non existing OS)
+    testing get specific API endpoint versions (with non existing OS)
     '''
     os_relase = 'redhat8'
     version = '2.3.0'
@@ -50,7 +50,7 @@ def test_get_specific_os_version_patch_ok():
 
 def test_get_specific_os_version_patch_fail():
     '''
-    testing get specefic API endpoint versions (with non existing OS)
+    testing get specific API endpoint versions (with non existing OS)
     '''
     os_relase = 'redhat8'
     version = '2.3.0'
