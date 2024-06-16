@@ -1,0 +1,22 @@
+import str_to_dict
+import logging
+import sys
+
+#IN_STR = 'cre:{ubuntu:{noble:check-mk-raw-2.3.0p6_0.noble_amd64.deb}}'
+#IN_STR = 'cre:{ubuntu:{noble:check-mk-raw-2.3.0p6_0.noble_amd64.deb},debian:{bookworm:check-mk-raw-2.3.0p6_0.bookworm_amd64.deb}}'
+IN_STR = 'cre:{ubuntu:{noble:check-mk-raw-2.3.0p6_0.noble_amd64.deb,jammy:check-mk-raw-2.3.0p6_0.jammy_amd64.deb},debian:{bookworm:check-mk-raw-2.3.0p6_0.bookworm_amd64.deb,bullseye:check-mk-raw-2.3.0p6_0.bullseye_amd64.deb}}'
+#IN_STR = 'cre:{ubuntu:{noble:check-mk-raw-2.3.0p6_0.noble_amd64.deb,jammy:check-mk-raw-2.3.0p6_0.jammy_amd64.deb}}'
+#IN_STR = 'ubuntu:{noble:check-mk-raw-2.3.0p6_0.noble_amd64.deb,jammy:check-mk-raw-2.3.0p6_0.jammy_amd64.deb,focal:check-mk-raw-2.3.0p6_0.focal_amd64.deb}'
+IN_STR = 'cre:{ubuntu:{noble:check-mk-raw-2.3.0p6_0.noble_amd64.deb,jammy:check-mk-raw-2.3.0p6_0.jammy_amd64.deb,focal:check-mk-raw-2.3.0p6_0.focal_amd64.deb},debian:{bookworm:check-mk-raw-2.3.0p6_0.bookworm_amd64.deb,bullseye:check-mk-raw-2.3.0p6_0.bullseye_amd64.deb,buster:check-mk-raw-2.3.0p6_0.buster_amd64.deb},sles:{sles15sp5:check-mk-raw-2.3.0p6-sles15sp5-38.x86_64.rpm,sles15sp4:check-mk-raw-2.3.0p6-sles15sp4-38.x86_64.rpm,sles15sp3:check-mk-raw-2.3.0p6-sles15sp3-38.x86_64.rpm,sles12sp5:check-mk-raw-2.3.0p6-sles12sp5-38.x86_64.rpm},redhat:{el9:check-mk-raw-2.3.0p6-el9-38.x86_64.rpm,el8:check-mk-raw-2.3.0p6-el8-38.x86_64.rpm},docker:{docker:check-mk-raw-docker-2.3.0p6.tar.gz}},cee:{ubuntu:{noble:check-mk-enterprise-2.3.0p6_0.noble_amd64.deb,jammy:check-mk-enterprise-2.3.0p6_0.jammy_amd64.deb,focal:check-mk-enterprise-2.3.0p6_0.focal_amd64.deb},debian:{bookworm:check-mk-enterprise-2.3.0p6_0.bookworm_amd64.deb,bullseye:check-mk-enterprise-2.3.0p6_0.bullseye_amd64.deb,buster:check-mk-enterprise-2.3.0p6_0.buster_amd64.deb},sles:{sles15sp5:check-mk-enterprise-2.3.0p6-sles15sp5-38.x86_64.rpm,sles15sp4:check-mk-enterprise-2.3.0p6-sles15sp4-38.x86_64.rpm,sles15sp3:check-mk-enterprise-2.3.0p6-sles15sp3-38.x86_64.rpm,sles12sp5:check-mk-enterprise-2.3.0p6-sles12sp5-38.x86_64.rpm},redhat:{el9:check-mk-enterprise-2.3.0p6-el9-38.x86_64.rpm,el8:check-mk-enterprise-2.3.0p6-el8-38.x86_64.rpm},docker:{docker:check-mk-enterprise-docker-2.3.0p6.tar.gz},cma:{cma-3:check-mk-enterprise-2.3.0p6-3-x86_64.cma,cma-4:check-mk-enterprise-2.3.0p6-4-x86_64.cma}},cce:{ubuntu:{noble:check-mk-cloud-2.3.0p6_0.noble_amd64.deb,jammy:check-mk-cloud-2.3.0p6_0.jammy_amd64.deb,focal:check-mk-cloud-2.3.0p6_0.focal_amd64.deb},debian:{bookworm:check-mk-cloud-2.3.0p6_0.bookworm_amd64.deb,bullseye:check-mk-cloud-2.3.0p6_0.bullseye_amd64.deb,buster:check-mk-cloud-2.3.0p6_0.buster_amd64.deb},sles:{sles15sp5:check-mk-cloud-2.3.0p6-sles15sp5-38.x86_64.rpm,sles15sp4:check-mk-cloud-2.3.0p6-sles15sp4-38.x86_64.rpm,sles15sp3:check-mk-cloud-2.3.0p6-sles15sp3-38.x86_64.rpm,sles12sp5:check-mk-cloud-2.3.0p6-sles12sp5-38.x86_64.rpm},redhat:{el9:check-mk-cloud-2.3.0p6-el9-38.x86_64.rpm,el8:check-mk-cloud-2.3.0p6-el8-38.x86_64.rpm},docker:{docker:check-mk-cloud-docker-2.3.0p6.tar.gz},cma:{cma-3:check-mk-cloud-2.3.0p6-3-x86_64.cma,cma-4:check-mk-cloud-2.3.0p6-4-x86_64.cma}},cme:{ubuntu:{noble:check-mk-managed-2.3.0p6_0.noble_amd64.deb,jammy:check-mk-managed-2.3.0p6_0.jammy_amd64.deb,focal:check-mk-managed-2.3.0p6_0.focal_amd64.deb},debian:{bookworm:check-mk-managed-2.3.0p6_0.bookworm_amd64.deb,bullseye:check-mk-managed-2.3.0p6_0.bullseye_amd64.deb,buster:check-mk-managed-2.3.0p6_0.buster_amd64.deb},sles:{sles15sp5:check-mk-managed-2.3.0p6-sles15sp5-38.x86_64.rpm,sles15sp4:check-mk-managed-2.3.0p6-sles15sp4-38.x86_64.rpm,sles15sp3:check-mk-managed-2.3.0p6-sles15sp3-38.x86_64.rpm,sles12sp5:check-mk-managed-2.3.0p6-sles12sp5-38.x86_64.rpm},redhat:{el9:check-mk-managed-2.3.0p6-el9-38.x86_64.rpm,el8:check-mk-managed-2.3.0p6-el8-38.x86_64.rpm},docker:{docker:check-mk-managed-docker-2.3.0p6.tar.gz},cma:{cma-3:check-mk-managed-2.3.0p6-3-x86_64.cma,cma-4:check-mk-managed-2.3.0p6-4-x86_64.cma}},'
+
+def main():
+    logging.basicConfig(level=logging.DEBUG,
+                    #format='%(asctime)s %(name)-12s %(levelname)-8s %(message)s')
+                    #format='%(asctime)s %(name)s %(levelname)s %(lineno)d %(message)s',
+                    format='%(asctime)s %(levelname)s %(lineno)d %(message)s',
+                    handlers=[logging.StreamHandler(sys.stdout)],
+                    )
+    logging.info(str_to_dict.str_to_dict(IN_STR))
+
+if __name__ == "__main__":
+    main()
