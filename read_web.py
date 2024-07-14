@@ -3,13 +3,14 @@ testbed for developing checkmk application versions
 '''
 
 import re
+import json
 import os
 import sys
 import datetime
 import logging
-import ast
-# https://www.delftstack.com/howto/python/python-logging-to-file-and-console/
+from pprint import pformat
 import requests
+# https://www.delftstack.com/howto/python/python-logging-to-file-and-console/
 
 def conv_ux_timestamp(unixtime:int) -> datetime.datetime:
     '''
@@ -35,9 +36,10 @@ def find_matching_braces_with_positions(in_str:str) -> list[tuple]:
     Returns:
         list[tuple]: List of tuples representing start and end positions of matching braces.
     '''
+    logging.debug('entering find_matching_braces_with_positions')
     stack = []
     brace_positions = []  # List to store start and end positions of braces
-
+    logging.debug('working with string of length %s', len(in_str))
     for i, char in enumerate(in_str):
         if char == '{':
             stack.append(i)
@@ -46,113 +48,95 @@ def find_matching_braces_with_positions(in_str:str) -> list[tuple]:
                 start_index = stack.pop()
                 brace_positions.append((start_index, i+1))  # Add start and end positions
             else:
-                print(f"Unmatched closing brace at index {i}")
+                logging.warning("Unmatched closing brace at index (%s)", i)
     if stack:
-        print(f"Unmatched opening braces at indices: {stack}")
+        logging.warning("Unmatched opening braces at indices: (%s)", stack)
 
-    return brace_positions
+    sorted_brace_positions = sorted(brace_positions, key=lambda x: x[0])
+    logging.debug('leaving find_matching_braces_with_positions')
+    return sorted_brace_positions
 
-def remove_chars(in_string: str, removables=None) -> str:
+
+def get_master_pair_list(in_list) -> list:
     '''
-    Removes specified characters from the input string.
-
-    Args:
-        in_string (str): The input string.
-        removables (list, optional): List of characters to remove.
-        Defaults to None (removes '{' and '}').
-
-    Returns:
-        str: The modified string with specified characters removed.
+    function that returns outer pairs from nestled ones.
     '''
-    if removables is None:
-        removables = ['{', '}']
+    master_pairs:list = []
+    first_pair:int = in_list[0][1]
+    master_pairs.append((0,first_pair))
+    logging.debug('first master pair ends at: %s', first_pair)
+    for _, item in enumerate(in_list):
+        if list(item)[0] > first_pair:
+            logging.debug('adding new master pair: (%s,%s)', first_pair+1, item[1])
+            master_pairs.append((first_pair+1, item[1]))
+            first_pair = item[1]
+    logging.debug('all master pairs: %s',master_pairs)
+    return master_pairs
 
-    translation_table = str.maketrans('', '', ''.join(removables))
-    cleaned_string = in_string.translate(translation_table)
-
-    return cleaned_string
 
 def handle_base_case(in_str:str) -> dict:
     '''
-    PEP 8
+    handles the bascase of dict in string format
     '''
-    logging.debug('in handle_base_case (%s)', in_str)
-    first_semicolon = in_str.index(':')
-    my_key = remove_chars(in_str[:first_semicolon])
-    my_val = remove_chars(in_str[first_semicolon+1:])
-    logging.debug('''key: '%s' val: '%s' ''', my_key, my_val)
-    return {my_key:my_val}
+    grep_str = r'''([a-z0-9-.]*):([a-z0-9-._]*)'''
+    logging.debug('in handle_base_case')
+    logging.debug('in_str: %s', in_str)
+    regex_result = re.findall(pattern=grep_str,
+                       string=in_str)
 
-def make_key_and_value(in_str:str, in_list:list) -> tuple[str,str]:
+    ret_dict = {}
+    for item in regex_result:
+        my_key = item[0]
+        my_val = item[1]
+        ret_dict.update({my_key:my_val})
+        logging.debug('''adding, key: '%s' val: '%s' ''', my_key, my_val)
+
+    return ret_dict
+
+
+def rm_outer_curly_braces(in_str:str) -> str:
     '''
-    PEP8
+    removed the first and last char of a string
     '''
-    my_val = in_str[in_list[0][0]+1:in_list[0][1]-1]
-    my_key = remove_chars(in_str.replace(my_val,''),[':','}','{'])
-    return my_key, my_val
+    if in_str[0] == '{' and in_str[-1] == '}':
+        return in_str[1:-1]
+    return in_str
 
 def str_to_dict(in_str:str) -> dict:
     '''
-    take 3
+    Now working - 2024-07-14!!
     '''
-    logging.debug('str_to_dict start %s', in_str)
-    in_dicts = find_matching_braces_with_positions(in_str)
-    sorted_in_dicts = sorted(in_dicts, key=lambda x: x[0])
-    logging.debug('dicts found in value part: %s (%s)', len(sorted_in_dicts), sorted_in_dicts)
+    logging.debug('entering str_to_dict')
+    logging.debug('length of string: %s,\nin_str:  \'%s\' ',len(in_str), in_str)
+    pairs = find_matching_braces_with_positions(in_str)
+    logging.debug('%s pairs found, details: %s ', len(pairs), pairs)
+    if len(pairs) > 0:
+        master_pairs = get_master_pair_list(pairs)
+        ret_dict = {}
+        for item in master_pairs:
+            logging.debug('working on master pair %s', item)
+            active_sub_str = in_str[item[0]:item[1]]
+            logging.debug('details %s', active_sub_str)
+            logging.debug('pair_lenght: %s', len(active_sub_str))
 
-    if len(sorted_in_dicts) <= 1:
-        commas = in_str.count(',')
-        logging.debug('commas: %s ', commas)
-        if len(sorted_in_dicts) == 0:
-            return handle_base_case(in_str)
-        if len(sorted_in_dicts) == 1:
-            logging.debug('''1 '{''}' pair found in sorted_in_dicts''')
-            if sorted_in_dicts[0][0] == 0:
-                logging.debug('entry lack key')
-                return sub_key_looper(in_str)
-            my_key, my_val = make_key_and_value(in_str,sorted_in_dicts)
-            if commas == 0:
-                logging.debug('''key: '%s' val: '%s' ''',my_key,  my_val)
-                return {my_key:str_to_dict(my_val)}
-            return {my_key:sub_key_looper(my_val)}
+            match = re.match(r'''^(\w{3,}):{''', active_sub_str)
+            if match:
+                clean_key = match.group(1)
+                logging.debug('clean_key %s', clean_key)
+                rest = active_sub_str[len(clean_key)+1:]
+                rest = rm_outer_curly_braces(rest)
+                logging.debug('rest: %s', rest)
+                ret_dict[clean_key] = str_to_dict(rest)
+        return ret_dict
+    logging.debug('will handle basecase')
+    return handle_base_case(in_str)
 
-    if len(sorted_in_dicts) == 2:
-        my_key, my_val = make_key_and_value(in_str,sorted_in_dicts)
-        logging.debug('''key: '%s' val: '%s' ''',my_key,  my_val)
-        return {my_key:str_to_dict(my_val)}
 
-    master_key:str = ''
-    key_value_collection = {}
-    for no, item in enumerate(sorted_in_dicts):
-        if no == 0:
-            master_key = remove_chars(in_str[:item[0]],[':','}','{'])
-            logging.debug('master_key %s', master_key)
-        else:
-            if (no % 2) == 0:
-                logging.debug('even')
-                sub_key = in_str[sorted_in_dicts[no-1][1]:sorted_in_dicts[no][0]]
-            else:
-                logging.debug('odd')
-                sub_key = in_str[sorted_in_dicts[no-1][0]:sorted_in_dicts[no][0]]
-            sub_key = remove_chars(sub_key,[':','}','{',','])
-            logging.debug('sub_key: %s',sub_key)
-            logging.debug('no:%s - %s ',no, item)
-            value = in_str[item[0]:item[1]]
-            logging.debug('value: \'%s\'',value)
-            key_value_collection.update({sub_key:str_to_dict(value)})
-    return {master_key:key_value_collection}
-
-def sub_key_looper(in_str:str):
+def count_dicts(in_text, target_word):
     '''
-    deo
+    my test
     '''
-    sub_dicts = {}
-    logging.debug('sub_key_looper: %s',in_str)
-    sub_pairs = in_str.split(',')
-    for item in sub_pairs:
-        logging.debug('working on item %s', item)
-        sub_dicts.update(str_to_dict(remove_chars(item)))
-    return sub_dicts
+    return in_text.lower().count(target_word.lower())
 
 def my_cleaner(intext:str):
     '''
@@ -160,12 +144,12 @@ def my_cleaner(intext:str):
     '''
     first = intext.replace('&quot;','')
     first = insert_char_at_position(first,'',-1)
-    #logging.info("first '%s'",first)
+    write_file('first.txt',first)
     print_dict = str_to_dict(first)
-    logging.info("my_cleaner %s", print_dict)
+    logging.debug("my_cleaner %s", print_dict)
     return print_dict
 
-def age_check(file_path: str, max_age:int = 24) -> bool:
+def check_file_age(file_path: str, max_age:int = 24) -> bool:
     '''
     Function to check the age of a file.
     Returns True if the file age is under max_age hours
@@ -204,6 +188,20 @@ def write_file(file_path: str, data):
         return "Permission denied."
     except OSError as e:
         return f"Error writing to file: {e}"
+
+
+def write_to_json(in_dict:dict, path:str) -> None:
+    '''
+    simepl function to write dict to json
+    '''
+    try:
+        with open(file=path,
+                  mode='w',
+                  encoding='UTF-8') as convert_file:
+            convert_file.write(json.dumps(in_dict, default=str))
+    except PermissionError as exept:
+        logging.error('permission denied: %s',exept )
+        raise PermissionError("permission denied") from exept
 
 
 def read_file(file_path: str) -> str:
@@ -268,9 +266,10 @@ def refine_checkmk_data(in_data):
                                                'is_daily_release':is_daily_grep,
                                                'versions':my_cleaner(version_grep),
                                                }
-        break
+        # break
+    write_to_json(versions_dict,'versions_dict.json')
+    logging.info(pformat(versions_dict,indent=4))
 
-    logging.info(versions_dict)
 
 def get_major_version(in_str):
     '''
@@ -280,17 +279,24 @@ def get_major_version(in_str):
     line_regex = re.match(version_regex,in_str)
     return line_regex.group()
 
+def worker():
+    '''
+    does all the heavy lifting
+    '''
+    file_path='request.txt'
+    if not check_file_age(file_path=file_path):
+        write_file(file_path=file_path, data=get_checkmk_version_data())
+
+    response_text = read_file(file_path=file_path)
+    refine_checkmk_data(response_text)
+
+
 if __name__ == "__main__":
-    #logging = logging.getlogging(__name__)
     logging.basicConfig(level=logging.INFO,
                         #format='%(asctime)s %(name)-12s %(levelname)-8s %(message)s')
                         format='%(asctime)s %(name)s %(levelname)s %(lineno)d %(message)s',
                         handlers=[logging.FileHandler("read_web.log"),
                                   logging.StreamHandler(sys.stdout)],
                         )
-    FILE_PATH='request.txt'
-    if not age_check(file_path=FILE_PATH):
-        write_file(file_path=FILE_PATH, data=get_checkmk_version_data())
-
-    RESPONSE_TEXT = read_file(file_path=FILE_PATH)
-    refine_checkmk_data(RESPONSE_TEXT)
+    worker()
+    
