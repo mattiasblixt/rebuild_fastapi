@@ -1,5 +1,5 @@
 '''
-testbed for developing checkmk application versions
+testbed for collecting checkmk application details
 '''
 
 import re
@@ -8,8 +8,9 @@ import os
 import sys
 import datetime
 import logging
-from pprint import pformat
+# from pprint import pformat
 import requests
+import pandas as pd
 # https://www.delftstack.com/howto/python/python-logging-to-file-and-console/
 
 def conv_ux_timestamp(unixtime:int) -> datetime.datetime:
@@ -102,6 +103,7 @@ def rm_outer_curly_braces(in_str:str) -> str:
         return in_str[1:-1]
     return in_str
 
+
 def str_to_dict(in_str:str) -> dict:
     '''
     Now working - 2024-07-14!!
@@ -138,6 +140,7 @@ def count_dicts(in_text, target_word):
     '''
     return in_text.lower().count(target_word.lower())
 
+
 def my_cleaner(intext:str):
     '''
     deo
@@ -148,6 +151,7 @@ def my_cleaner(intext:str):
     print_dict = str_to_dict(first)
     logging.debug("my_cleaner %s", print_dict)
     return print_dict
+
 
 def check_file_age(file_path: str, max_age:int = 24) -> bool:
     '''
@@ -190,6 +194,19 @@ def write_file(file_path: str, data):
         return f"Error writing to file: {e}"
 
 
+def read_file(file_path: str) -> str:
+    '''
+    Simple read from file function.
+    Returns the content of the file as a string.
+    If the file is not found, returns "File not found."
+    '''
+    try:
+        with open(file_path, "r", encoding='UTF-8') as filehandler:
+            return filehandler.read()
+    except FileNotFoundError:
+        return "File not found."
+
+
 def write_json(in_dict:dict, path:str) -> None:
     '''
     simple  function to write dict to json
@@ -207,17 +224,58 @@ def write_json(in_dict:dict, path:str) -> None:
         raise PermissionError("permission denied") from exept
 
 
-def read_file(file_path: str) -> str:
+def read_json(path):
     '''
-    Simple read from file function.
-    Returns the content of the file as a string.
-    If the file is not found, returns "File not found."
+    simple  function to read json to dict
     '''
     try:
-        with open(file_path, "r", encoding='UTF-8') as filehandler:
-            return filehandler.read()
-    except FileNotFoundError:
-        return "File not found."
+        with open(file=path,
+                encoding='UTF-8') as file_handler:
+            return json.load(file_handler)
+    except PermissionError as exept:
+        logging.error('permission denied: %s',exept )
+        raise PermissionError("permission denied") from exept
+
+
+def cmk_edition_common_name(in_str: str)-> str:
+    '''
+    retunrs common name of versions
+    '''
+    cmk_editions = {'cee':'Enterprise',
+                    'cre':'Raw',
+                    'cee_32':'Enterprise (32)',
+                    'cre_32':'Raw (32)',
+                    'cce':'Cloud',
+                    'cme':'MSP',
+    }
+    try:
+        return cmk_editions[in_str]
+    except KeyError:
+        return 'Unknown'
+
+def os_edition_common_name(in_str: str)-> str:
+    '''
+    returns common names of OS relases
+    '''
+    os_editions = {'el5':'Enterprise Linux 5',
+                   'el6':'Enterprise Linux 6',
+                   'el7':'Enterprise Linux 7',
+                   'el8':'Enterprise Linux 8',
+                   'el9':'Enterprise Linux 9',
+                   'sles11sp3':'SUSE Linux Enterprise 11 sp3',
+                   'sles11sp4':'SUSE Linux Enterprise 11 sp4',
+                   'sles12':'SUSE Linux Enterprise 12',
+                   'sles12sp1':'SUSE Linux Enterprise 12 sp1',
+                   'sles12sp2':'SUSE Linux Enterprise 12 sp2',
+                   'sles12sp3':'SUSE Linux Enterprise 12 sp3',
+    }
+    try:
+        return os_editions[in_str]
+    except KeyError:
+        return 'Unkown'
+
+
+
 
 
 def get_checkmk_version_data():
@@ -272,8 +330,61 @@ def refine_checkmk_data(in_data):
         # break
 
     write_json(versions_dict,'versions_dict.json')
-    logging.info('Done')
-    #logging.info(pformat(versions_dict, indent=4))
+    logging.info('Done collecting and storing')
+    read_dict = read_json('versions_dict.json')
+    list_of_list = []
+    columns = ['major',
+               'patch',
+               'release_date',
+               'is_daily_release',
+               'edition',
+               'edition_common_name',
+               'os',
+               'os_edition',
+               'os_edition_common_name',
+               'binary',
+               'local_repo_path',
+               'remote_repo_path',
+    ]
+    major_ver = list(read_dict.keys())
+    for major in major_ver:
+        app_version_dict = read_dict[major]
+        patches_list = list(app_version_dict.keys())
+        # logging.debug('major: %s patches: %s', major, patches_list)
+        for patch in patches_list:
+            # logging.info(version_dict[patch])
+            active_patch_dict = app_version_dict[patch]
+            release_date = active_patch_dict.get('release_date','')
+            is_daily_release = active_patch_dict.get('is_daily_release','')
+            app_edition_dict = active_patch_dict.get('versions',dict)
+            editions_list = list(app_edition_dict.keys())
+            # logging.info('%s %s %s', major, patch, editions_list)
+            for edition in editions_list:
+                active_app_dict = active_patch_dict['versions'][edition]
+                # logging.info(active_app_dict)
+                os_list = list(active_app_dict.keys())
+                # logging.info(os_list)
+                for os_var in os_list:
+                    active_os = active_app_dict[os_var]
+                    # logging.info(active_os)
+                    for lkey, binary in active_os.items():
+                        row = [major,
+                               patch,
+                               release_date,
+                               is_daily_release,
+                               edition,
+                               cmk_edition_common_name(edition),
+                               os_var,
+                               lkey,
+                               os_edition_common_name(lkey),
+                               binary,
+                               '', # local_repo_path
+                               '', # remote_repo_path
+                               ]
+                        list_of_list.append(row)
+
+    data_frame = pd.DataFrame(list_of_list, columns=columns)
+    logging.info(data_frame)
 
 
 def get_major_version(in_str):
