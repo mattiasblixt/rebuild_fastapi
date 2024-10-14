@@ -190,15 +190,18 @@ def write_file(file_path: str, data):
         return f"Error writing to file: {e}"
 
 
-def write_to_json(in_dict:dict, path:str) -> None:
+def write_json(in_dict:dict, path:str) -> None:
     '''
-    simepl function to write dict to json
+    simple  function to write dict to json
+    with open('my_dict.json', 'w') as f:
+    json.dump(my_dict, f)
     '''
+    logging.info('Writing dict to file: %s', path)
     try:
         with open(file=path,
                   mode='w',
                   encoding='UTF-8') as convert_file:
-            convert_file.write(json.dumps(in_dict, default=str))
+            json.dump(obj=in_dict, fp=convert_file, default=str)
     except PermissionError as exept:
         logging.error('permission denied: %s',exept )
         raise PermissionError("permission denied") from exept
@@ -267,8 +270,10 @@ def refine_checkmk_data(in_data):
                                                'versions':my_cleaner(version_grep),
                                                }
         # break
-    write_to_json(versions_dict,'versions_dict.json')
-    logging.info(pformat(versions_dict,indent=4))
+
+    write_json(versions_dict,'versions_dict.json')
+    logging.info('Done')
+    #logging.info(pformat(versions_dict, indent=4))
 
 
 def get_major_version(in_str):
@@ -285,7 +290,8 @@ def worker():
     '''
     file_path='request.txt'
     if not check_file_age(file_path=file_path):
-        write_file(file_path=file_path, data=get_checkmk_version_data())
+        write_file(file_path=file_path,
+                   data=get_checkmk_version_data())
 
     response_text = read_file(file_path=file_path)
     refine_checkmk_data(response_text)
