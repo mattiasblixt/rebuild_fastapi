@@ -278,13 +278,13 @@ def os_edition_common_name(in_str: str)-> str:
 
 
 
-def get_checkmk_version_data():
+def get_checkmk_version_data(major_release: str = '2.3.0'):
     '''
     function to webscrape the checkmk.com webpage to collect all
     checkmk application versions released  
     '''
 
-    url = "https://checkmk.com/download/archive#checkmk-2.3.0"
+    url = f"https://checkmk.com/download/archive#checkmk-{major_release}"
 
     try:
         response = requests.get(url, timeout=10)
