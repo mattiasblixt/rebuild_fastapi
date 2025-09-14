@@ -409,7 +409,7 @@ def worker():
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO,
+    logging.basicConfig(level=logging.DEBUG,
                         #format='%(asctime)s %(name)-12s %(levelname)-8s %(message)s')
                         format='%(asctime)s %(name)s %(levelname)s %(lineno)d %(message)s',
                         handlers=[logging.FileHandler("read_web.log"),
